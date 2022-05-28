@@ -1,6 +1,6 @@
 import { Destination, DownloadedFile } from "./types.ts";
 import { Buffer } from "https://deno.land/std@0.141.0/io/buffer.ts";
-import { ensureDirSync } from "https://deno.land/std@0.141.0/fs/mod.ts";
+import { ensureDir } from "https://deno.land/std@0.141.0/fs/mod.ts";
 import { extension } from "https://deno.land/x/media_types@v3.0.3/mod.ts";
 
 /** Download file from url to the destination. */
@@ -30,7 +30,7 @@ export async function download(
   if (
     typeof destination === "undefined" || typeof destination.dir === "undefined"
   ) {
-    dir = Deno.makeTempDirSync({ prefix: "deno_dwld" });
+    dir = await Deno.makeTempDir({ prefix: "deno_dwld" });
   } else {
     dir = destination.dir;
   }
@@ -51,7 +51,7 @@ export async function download(
   }
 
   dir = dir.replace(/\/$/, "");
-  ensureDirSync(dir);
+  await ensureDir(dir);
 
   const ext = extension(
     response.headers.get("Content-Type") ?? "application/octet-stream",
@@ -60,6 +60,6 @@ export async function download(
   file = file.match(/^(.+)\.?.*$/)![1] + "." + ext;
 
   const fullPath = `${dir}/${file}`;
-  Deno.writeFileSync(fullPath, unit8arr, mode);
-  return Promise.resolve({ file, dir, fullPath, size });
+  await Deno.writeFile(fullPath, unit8arr, mode);
+  return { file, dir, fullPath, size };
 }
