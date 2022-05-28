@@ -53,10 +53,15 @@ export async function download(
   dir = dir.replace(/\/$/, "");
   await ensureDir(dir);
 
-  const ext = extension(
-    response.headers.get("Content-Type") ?? "application/octet-stream",
-  );
-
+  let ext;
+  const disposition = response.headers.get("Content-Disposition");
+  if (disposition != null && disposition.includes("filename")) {
+    ext = disposition.split("=")[1].split(".")[1];
+  } else {
+    ext = extension(
+      response.headers.get("Content-Type") ?? "application/octet-stream",
+    );
+  }
   file = file.match(/^(.+)\.?.*$/)![1] + "." + ext;
 
   const fullPath = `${dir}/${file}`;
