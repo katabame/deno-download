@@ -56,7 +56,11 @@ export async function download(
   let ext;
   const disposition = response.headers.get("Content-Disposition");
   if (disposition != null && disposition.includes("filename")) {
-    ext = disposition.split("=")[1].split(".")[1];
+    for (const entry in disposition.split(";")) {
+      if (entry.includes("filename")) {
+        ext = entry.replaceAll(/( |\")/, "").match(/.*\.(.*)$/);
+      }
+    }
   } else {
     ext = extension(
       response.headers.get("Content-Type") ?? "application/octet-stream",
