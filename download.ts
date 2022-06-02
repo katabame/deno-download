@@ -55,12 +55,13 @@ export async function download(
 
   let ext;
   const disposition = response.headers.get("Content-Disposition");
+  console.log(disposition);
   if (disposition != null && disposition.includes("filename")) {
-    for (const entry in disposition.split(";")) {
+    disposition.split(";").forEach((entry) => {
       if (entry.includes("filename")) {
-        ext = entry.replaceAll(/( |\")/, "").match(/.*\.(.*)$/);
+        ext = entry.replaceAll(/( |\")/g, "").match(/.*\.(.*)$/)![1] ?? "";
       }
-    }
+    });
   } else {
     ext = extension(
       response.headers.get("Content-Type") ?? "application/octet-stream",
