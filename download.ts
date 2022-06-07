@@ -1,61 +1,47 @@
 import { Destination, DownloadedFile } from "./types.ts";
-import { Buffer } from "https://deno.land/std@0.141.0/io/buffer.ts";
-import { ensureDir } from "https://deno.land/std@0.141.0/fs/mod.ts";
-import { extension } from "https://deno.land/x/media_types@v3.0.3/mod.ts";
+import { Buffer } from "https://deno.land/std@0.142.0/io/buffer.ts";
+import { ensureDirSync } from "https://deno.land/std@0.142.0/fs/mod.ts";
+import { extension } from "https://deno.land/std@0.142.0/media_types/mod.ts";
 
-/** Download file from url to the destination. */
+/**
+ * Download file from url to the destination
+ *
+ * @param input - either an url string or fetch request object
+ * @param destination
+ * @param options
+ * @returns
+ */
 export async function download(
-  url: string | URL,
+  input: string | Request,
   destination?: Destination,
   options?: RequestInit,
 ): Promise<DownloadedFile> {
-  let dir: string;
-  let file: string;
-  let mode: Record<string, unknown> = {};
-
-  const response = await fetch(url, options);
-  if (response.status != 200) {
-    return Promise.reject(
-      new Deno.errors.Http(
-        `status ${response.status}-'${response.statusText}' received instead of 200`,
-      ),
+  const response: Response = await fetch(input, options);
+  if (response.status !== 200) {
+    throw new Deno.errors.Http(
+      `status ${response.status}-'${response.statusText}' received instead of 200`,
     );
   }
-  const finalUrl = response.url.replace(/\/$/, "");
-  const blob = await response.blob();
-  /** size in bytes */
-  const size = blob.size;
-  const buffer = await blob.arrayBuffer();
-  const unit8arr = new Buffer(buffer).bytes();
-  if (
-    typeof destination === "undefined" || typeof destination.dir === "undefined"
-  ) {
-    dir = await Deno.makeTempDir({ prefix: "deno_dwld" });
-  } else {
-    dir = destination.dir;
-  }
 
-  if (
-    typeof destination === "undefined" ||
-    typeof destination.file === "undefined"
-  ) {
-    file = finalUrl.substring(finalUrl.lastIndexOf("/") + 1);
-  } else {
-    file = destination.file;
-  }
+  const finalUrl: string = response.url.replace(/\/$/, "");
+  const blob: Blob = await response.blob();
+  const size: number = blob.size;
+  const buffer: ArrayBuffer = await blob.arrayBuffer();
+  const uint8array: Uint8Array = new Buffer(buffer).bytes();
 
-  if (
-    typeof destination != "undefined" && typeof destination.mode != "undefined"
-  ) {
-    mode = { mode: destination.mode };
-  }
-
+  let dir: string = destination?.dir ??
+    Deno.makeTempDirSync({ prefix: "deno_dwld" });
+  let file: string = destination?.file ??
+    finalUrl.substring(finalUrl.lastIndexOf("/") + 1);
+  const mode: Record<string, number | undefined> =
+    (destination?.mode !== undefined) ? { mode: destination.mode } : {};
   dir = dir.replace(/\/$/, "");
-  await ensureDir(dir);
+  ensureDirSync(dir);
 
-  let ext;
-  const disposition = response.headers.get("Content-Disposition");
-  console.log(disposition);
+  let ext: string | undefined;
+  const disposition: string | null = response.headers.get(
+    "Content-Disposition",
+  );
   if (disposition != null && disposition.includes("filename")) {
     disposition.split(";").forEach((entry) => {
       if (entry.includes("filename")) {
@@ -63,13 +49,12 @@ export async function download(
       }
     });
   } else {
-    ext = extension(
-      response.headers.get("Content-Type") ?? "application/octet-stream",
-    );
+    ext = extension(response.headers.get("Content-Type")!) ?? "";
   }
-  file = file.match(/^(.+)\.?.*$/)![1] + "." + ext;
-
+  file = ext == ""
+    ? file.match(/^(.+)\.?.*$/)![1]
+    : file.match(/^(.+)\.?.*$/)![1] + "." + ext;
   const fullPath = `${dir}/${file}`;
-  await Deno.writeFile(fullPath, unit8arr, mode);
+  await Deno.writeFile(fullPath, uint8array, mode);
   return { file, dir, fullPath, size };
 }
